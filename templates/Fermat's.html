@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fermat's Principle of Least Time</title>
+    <style>
+        :root {
+            --bg-color: #FDFEFE;
+            --sand-color: #FAEECF;
+            --water-color: #EBF5FB;
+            --text-color: #34495E;
+            --highlight-color: #E74C3C;
+            --path-color: #5D6D7E;
+            --title-font: 'Georgia', serif;
+            --body-font: 'Helvetica Neue', 'Arial', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-color);
+            font-family: var(--body-font);
+            overflow: hidden;
+        }
+
+        #animation-container {
+            width: 2560px;
+            height: 1440px;
+            position: relative;
+            transform-origin: center center;
+            background-color: var(--bg-color);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        #scene {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Subtitles */
+        #subtitles {
+            position: absolute;
+            bottom: 5vh;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 1200px;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            z-index: 100;
+        }
+
+        #subtitles p {
+            margin: 5px 0;
+        }
+
+        #subtitle-cn {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        #subtitle-en {
+            font-size: 18px;
+            color: #5D6D7E;
+        }
+        
+        /* SVG elements styling */
+        .background-rect {
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+        
+        .title-text {
+            font-family: var(--title-font);
+            font-size: 90px;
+            fill: var(--text-color);
+            opacity: 0;
+            text-anchor: middle;
+        }
+        
+        .subtitle-text {
+            font-family: var(--body-font);
+            font-size: 40px;
+            fill: var(--text-color);
+            opacity: 0;
+            text-anchor: middle;
+        }
+
+        .scene-object {
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+        
+        .lifeguard-icon, .person-icon {
+            font-size: 80px;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+        
+        .path {
+            stroke-width: 6;
+            stroke-linecap: round;
+            fill: none;
+            stroke-dasharray: 4000;
+            stroke-dashoffset: 4000;
+        }
+
+        .path-straight { stroke: var(--path-color); }
+        .path-perpendicular { stroke: var(--path-color); }
+        .path-optimal { stroke: var(--highlight-color); }
+        
+        .timer-text {
+            font-size: 50px;
+            font-family: 'Courier New', monospace;
+            fill: var(--text-color);
+            text-anchor: middle;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        .label-text {
+            font-size: 32px;
+            fill: var(--text-color);
+            font-family: var(--body-font);
+            opacity: 0;
+            text-anchor: middle;
+        }
+        
+        .formula-text {
+            font-family: var(--title-font);
+            font-style: italic;
+            font-size: 50px;
+            fill: var(--highlight-color);
+            opacity: 0;
+            text-anchor: middle;
+        }
+
+        /* Animation specific classes */
+        .fade-in { animation: fadeIn 1s forwards; }
+        .fade-out { animation: fadeOut 1s forwards; }
+        .draw-in { animation: draw 2s forwards ease-in-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+
+        @keyframes draw {
+            to { stroke-dashoffset: 0; }
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div id="animation-container">
+        <svg id="scene" viewBox="0 0 2560 1440">
+            <!-- Backgrounds -->
+            <rect id="bg-sand" class="background-rect" x="0" y="0" width="2560" height="720" fill="var(--sand-color)"/>
+            <rect id="bg-water" class="background-rect" x="0" y="720" width="2560" height="720" fill="var(--water-color)"/>
+
+            <!-- Title Screen -->
+            <text id="main-title" class="title-text" x="1280" y="650">Fermat's Principle of Least Time</text>
+            <text id="sub-title" class="title-text" x="1280" y="780" style="font-size: 60px;">费尔马最短时间原理</text>
+
+            <!-- Lifeguard Scene -->
+            <g id="lifeguard-scene" class="scene-object">
+                <!-- Points A and B -->
+                <text id="point-a-icon" class="lifeguard-icon" x="500" y="400"> 救生员 </text>
+                <text id="point-b-icon" class="person-icon" x="2060" y="1100"> 溺水者</text>
+                <text id="label-a" class="label-text" x="500" y="320">A点 (起点)</text>
+                <text id="label-b" class="label-text" x="2060" y="1180">B点 (终点)</text>
+                <text id="label-sand" class="label-text" x="200" y="100">沙滩 (快)</text>
+                <text id="label-water" class="label-text" x="200" y="1340">水域 (慢)</text>
+                
+                <!-- Paths -->
+                <path id="path-straight" class="path path-straight" d="M 500 400 L 2060 1100"/>
+                <path id="path-perpendicular" class="path path-perpendicular" d="M 500 400 L 500 720 L 2060 1100"/>
+                <path id="path-optimal" class="path path-optimal" d="M 500 400 L 1450 720 L 2060 1100"/>
+                
+                <!-- Movers -->
+                <text id="mover-straight" class="lifeguard-icon" opacity="0">🏃</text>
+                <text id="mover-perp" class="lifeguard-icon" opacity="0">🏃</text>
+                <text id="mover-optimal" class="lifeguard-icon" opacity="0">🏃</text>
+
+                <!-- Timers -->
+                <text id="timer-straight" class="timer-text" x="1280" y="150">Time: ?</text>
+                <text id="timer-perp" class="timer-text" x="1280" y="220">Time: ?</text>
+                <text id="timer-optimal" class="timer-text" x="1280" y="290" fill="var(--highlight-color)">Time: ?</text>
+            </g>
+            
+            <!-- Refraction Scene -->
+            <g id="refraction-scene" class="scene-object">
+                 <path id="ray-path" class="path" stroke="url(#light-gradient)" stroke-width="12" d="M 500 400 L 1450 720 L 2060 1100"/>
+                 <defs>
+                    <linearGradient id="light-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#F9D423;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#FF4E50;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <line x1="1450" y1="220" x2="1450" y2="1220" stroke="#B0BEC5" stroke-width="4" stroke-dasharray="15 15" opacity="0" id="normal-line"/>
+                <text id="label-air" class="label-text" x="300" y="100">Air (n₁)</text>
+                <text id="label-glass" class="label-text" x="300" y="1340">Water (n₂)</text>
+                <text id="label-theta1" class="label-text" x="1350" y="550">θ₁</text>
+                <text id="label-theta2" class="label-text" x="1550" y="890">θ₂</text>
+                <text id="snell-law" class="formula-text" x="1280" y="150">n₁ sin(θ₁) = n₂ sin(θ₂)</text>
+            </g>
+            
+            <!-- Final summary -->
+            <text id="final-title" class="title-text" x="1280" y="720" style="font-size: 70px;">Path of Least Time, not Distance.</text>
+        </svg>
+    </div>
+
+    <div id="subtitles">
+        <p id="subtitle-cn"></p>
+        <p id="subtitle-en"></p>
+    </div>
+
+    <script>
+        // --- UTILITY FUNCTIONS ---
+        const $ = (selector) => document.querySelector(selector);
+        const subtitles = $('#subtitles');
+        const subtitleCN = $('#subtitle-cn');
+        const subtitleEN = $('#subtitle-en');
+
+        function updateSubtitles(cn, en) {
+            subtitles.style.opacity = '0';
+            setTimeout(() => {
+                subtitleCN.innerHTML = cn;
+                subtitleEN.innerHTML = en;
+                subtitles.style.opacity = '1';
+            }, 500);
+        }
+
+        function hideSubtitles() {
+            subtitles.style.opacity = '0';
+        }
+        
+        function animateElement(selector, animations) {
+            const el = $(selector);
+            Object.keys(animations).forEach(prop => {
+                el.style[prop] = animations[prop];
+            });
+        }
+        
+        function setOpacity(selector, value) {
+            $(selector).style.opacity = value;
+        }
+
+        function drawPath(selector, duration = 2000) {
+            const path = $(selector);
+            path.style.transition = `stroke-dashoffset ${duration / 1000}s ease-in-out`;
+            path.style.strokeDashoffset = '0';
+        }
+
+        function erasePath(selector, duration = 1000) {
+            const path = $(selector);
+            path.style.transition = `stroke-dashoffset ${duration / 1000}s ease-in-out`;
+            path.style.strokeDashoffset = '4000';
+        }
+        
+        function animateMover(moverId, pathId, duration) {
+            const mover = $(moverId);
+            const path = $(pathId);
+            const pathLength = path.getTotalLength();
+            mover.style.opacity = '1';
+
+            let start = null;
+            function step(timestamp) {
+                if (!start) start = timestamp;
+                const progress = (timestamp - start) / duration;
+                if (progress < 1) {
+                    const point = path.getPointAtLength(progress * pathLength);
+                    mover.setAttribute('x', point.x);
+                    mover.setAttribute('y', point.y);
+                    // Change icon based on medium
+                    if (moverId !== '#mover-optimal') {
+                         mover.innerHTML = point.y > 720 ? '🏊' : '🏃';
+                    } else {
+                         mover.innerHTML = point.y > 720 ? '🏊' : '🏃';
+                    }
+                    requestAnimationFrame(step);
+                } else {
+                    const endPoint = path.getPointAtLength(pathLength);
+                    mover.setAttribute('x', endPoint.x);
+                    mover.setAttribute('y', endPoint.y);
+                    mover.style.opacity = '0';
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        // --- ANIMATION TIMELINE ---
+        const timeline = [
+            // 0. Initial Fade In Title
+            { delay: 500, action: () => {
+                setOpacity('#main-title', '1');
+                setOpacity('#sub-title', '1');
+                $('#main-title').classList.add('fade-in');
+                $('#sub-title').classList.add('fade-in');
+                updateSubtitles('光，总是选择最快的路径。', 'Light always chooses the fastest path.');
+            }},
+            
+            // 1. Transition to Lifeguard scene
+            { delay: 4000, action: () => {
+                $('#main-title').classList.add('fade-out');
+                $('#sub-title').classList.add('fade-out');
+            }},
+            { delay: 1000, action: () => {
+                setOpacity('#main-title', '0');
+                setOpacity('#sub-title', '0');
+                setOpacity('#bg-sand', '1');
+                setOpacity('#bg-water', '1');
+                setOpacity('#lifeguard-scene', '1');
+                ['#label-a', '#label-b', '#label-sand', '#label-water'].forEach(s => setOpacity(s, '1'));
+                updateSubtitles('想象一下，你是一名救生员。', 'Imagine you are a lifeguard.');
+            }},
+
+            // 2. Introduce the problem
+            { delay: 3000, action: () => {
+                updateSubtitles('你需要在最短的时间内，从A点到达B点。', 'You need to get from point A to point B in the shortest possible time.');
+            }},
+            { delay: 3000, action: () => {
+                updateSubtitles('你在沙滩上跑得快，但在水里游得慢。', 'You run fast on sand, but swim slowly in water.');
+            }},
+
+            // 3. Test Path 1: Straight Line
+            { delay: 3000, action: () => {
+                updateSubtitles('最直接的路径是直线吗？', 'Is the most direct path a straight line?');
+                drawPath('#path-straight');
+            }},
+            { delay: 2000, action: () => {
+                animateMover('#mover-straight', '#path-straight', 4000);
+                setOpacity('#timer-straight', '1');
+                $('#timer-straight').textContent = "Time: 12.8s";
+            }},
+            { delay: 4500, action: () => {
+                updateSubtitles('这条路在“慢速”的水中距离太长，耗时并不短。', 'This path covers too much distance in the "slow" water, so it\'s not the fastest.');
+                erasePath('#path-straight');
+                setOpacity('#timer-straight', '0');
+            }},
+
+            // 4. Test Path 2: Perpendicular
+            { delay: 3000, action: () => {
+                updateSubtitles('那...尽量减少在水里的距离？', 'What about... minimizing the distance in the water?');
+                drawPath('#path-perpendicular');
+            }},
+            { delay: 2000, action: () => {
+                animateMover('#mover-perp', '#path-perpendicular', 4000);
+                setOpacity('#timer-perp', '1');
+                 $('#timer-perp').textContent = "Time: 14.1s";
+            }},
+            { delay: 4500, action: () => {
+                updateSubtitles('这样在“快速”的沙滩上跑得太远，总时间反而更长。', 'This makes the run on the "fast" sand too long, resulting in an even longer total time.');
+                erasePath('#path-perpendicular');
+                setOpacity('#timer-perp', '0');
+            }},
+
+            // 5. Reveal Optimal Path
+            { delay: 3000, action: () => {
+                updateSubtitles('聪明的选择是：在沙滩上多跑一段，以换取在水中更短的距离。', 'The smart choice is to run a bit farther on the sand to shorten the swimming distance.');
+                drawPath('#path-optimal', 2000);
+            }},
+            { delay: 2000, action: () => {
+                animateMover('#mover-optimal', '#path-optimal', 3000);
+                setOpacity('#timer-optimal', '1');
+                $('#timer-optimal').textContent = "Time: 11.5s";
+            }},
+            { delay: 3500, action: () => {
+                updateSubtitles('存在一个最佳的入射点，使得总时间最短。', 'There is an optimal entry point that minimizes the total travel time.');
+                $('#timer-optimal').style.transform = 'scale(1.2)';
+                $('#timer-optimal').style.transition = 'transform 0.5s';
+            }},
+            
+            // 6. Transition to Light Refraction
+            { delay: 4000, action: () => {
+                updateSubtitles('这，正是光的选择。这就是费尔马最短时间原理。', "This is precisely what light does. This is Fermat's Principle of Least Time.");
+                setOpacity('#lifeguard-scene', '0');
+            }},
+            { delay: 1000, action: () => {
+                setOpacity('#refraction-scene', '1');
+                $('#ray-path').style.strokeDashoffset = '4000';
+                setTimeout(() => drawPath('#ray-path', 1500), 100);
+                setOpacity('#label-air', '1');
+                setOpacity('#label-glass', '1');
+            }},
+            
+            // 7. Explain Refraction
+            { delay: 3000, action: () => {
+                updateSubtitles('当光从快介质（如空气）进入慢介质（如水），它会弯曲...', 'When light travels from a fast medium (like air) to a slow one (like water), it bends...');
+                setOpacity('#normal-line', '0.5');
+                setOpacity('#label-theta1', '1');
+                setOpacity('#label-theta2', '1');
+            }},
+             { delay: 3000, action: () => {
+                updateSubtitles('...并遵循一条能让总时间最短的路径。', '...following the path that takes the least amount of time.');
+            }},
+            { delay: 3000, action: () => {
+                updateSubtitles('这个原理的数学表达，就是我们熟知的斯涅尔定律。', 'The mathematical expression of this principle is the familiar Snell\'s Law.');
+                setOpacity('#snell-law', '1');
+                $('#snell-law').classList.add('fade-in');
+            }},
+            
+            // 8. Conclusion
+            { delay: 5000, action: () => {
+                 setOpacity('#refraction-scene', '0');
+            }},
+            { delay: 1000, action: () => {
+                updateSubtitles('所以，自然的法则并非选择最短的距离...', "So, nature's law isn't about the shortest distance...");
+                setOpacity('#final-title', '1');
+                $('#final-title').classList.add('fade-in');
+            }},
+            { delay: 3000, action: () => {
+                updateSubtitles('...而是选择最短的时间。一条简单而深刻的规则。', "...but the shortest time. A simple, yet profound rule.");
+            }},
+             { delay: 5000, action: () => {
+                hideSubtitles();
+                setOpacity('#final-title', '0');
+            }},
+        ];
+
+        // --- MAIN EXECUTION ---
+        function startAnimation() {
+            // Responsive scaling
+            const container = $('#animation-container');
+            function resize() {
+                const screenWidth = window.innerWidth;
+                const screenHeight = window.innerHeight;
+                const scaleX = screenWidth / 2560;
+                const scaleY = screenHeight / 1440;
+                const scale = Math.min(scaleX, scaleY);
+                container.style.transform = `scale(${scale})`;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            // Run timeline
+            let cumulativeTime = 0;
+            timeline.forEach(step => {
+                cumulativeTime += step.delay;
+                setTimeout(step.action, cumulativeTime);
+            });
+        }
+
+        window.onload = startAnimation;
+
+    </script>
+</body>
+</html>

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from google import genai
+import google.generativeai as genai
 
 # -----------------------------------------------------------------------
 # 0. 配置
@@ -64,19 +64,55 @@ async def llm_event_stream(
 ) -> AsyncGenerator[str, None]:
     history = history or []
     
-    # The system prompt is now more focused
-    system_prompt = f"""请你生成一个非常精美的动态动画,讲讲 {topic}
-要动态的,要像一个完整的,正在播放的视频。包含一个完整的过程，能把知识点讲清楚。
-页面极为精美，好看，有设计感，同时能够很好的传达知识。知识和图像要准确
-附带一些旁白式的文字解说,从头到尾讲清楚一个小的知识点
-不需要任何互动按钮,直接开始播放
-使用和谐好看，广泛采用的浅色配色方案，使用很多的，丰富的视觉元素。双语字幕
-**请保证任何一个元素都在一个2k分辨率的容器中被摆在了正确的位置，避免穿模，字幕遮挡，图形位置错误等等问题影响正确的视觉传达**
-html+css+js+svg，放进一个html里"""
+    # The system prompt is now more focused and references a structural example
+    fermats_example_structure = """
+**请严格参考以下 HTML/CSS/JS 结构来生成动画,但不要模仿内容本身:**
+
+1.  **单一 HTML 文件**: 所有代码（HTML, CSS, JS）都在一个 HTML 文件中。
+2.  **CSS 样式**:
+    *   在 `<head>` 中使用 `<style>` 标签。
+    *   使用 CSS 变量 (e.g., `:root { --bg-color: #...; }`) 来定义颜色和字体方案，方便统一修改。
+    *   定义关键帧动画 (`@keyframes`) 用于元素的淡入、淡出等效果。
+3.  **HTML 结构**:
+    *   主体是一个大的容器 `<div id="animation-container">`，固定分辨率（如 2560x1440），并使用 CSS transform scale 实现响应式布局。
+    *   容器内有一个 `<svg id="scene">` 元素，作为所有动画视觉元素的画布。
+    *   SVG 内使用 `<g>` 元素来组织不同的场景或对象组。
+    *   一个单独的 `<div id="subtitles">` 用于显示中英双语字幕，位于动画容器之外，通过 CSS 定位在底部。
+4.  **JavaScript 逻辑**:
+    *   所有 JS 代码放在 `<body>` 结尾的 `<script>` 标签内。
+    *   **核心是时间线 (Timeline)**: 创建一个名为 `timeline` 的 JavaScript 数组。
+    *   `timeline` 数组中的每个元素都是一个对象，代表一个动画步骤，包含两个关键属性: `{ delay: <毫秒>, action: () => { ... } }`。
+    *   `delay` 是指与上一个动画步骤结束后的等待时间。
+    *   `action` 是一个函数，执行该步骤的具体动画逻辑（如修改SVG元素属性、显示字幕等）。
+    *   **辅助函数**: 编写简洁的辅助函数来操作 DOM，例如：
+        *   `$` 选择器函数。
+        *   `updateSubtitles(cn, en)` 函数来更新字幕内容。
+        *   `setOpacity(selector, value)` 等函数来控制动画。
+        *   使用 `requestAnimationFrame` 来实现平滑的动态效果（例如，沿着路径移动的动画）。
+    *   **主执行函数**: 一个 `startAnimation` 函数，它会:
+        *   设置响应式缩放的事件监听器。
+        *   遍历 `timeline` 数组，并使用 `setTimeout` 根据累计的 `delay` 来依次执行每个步骤的 `action`。
+    *   通过 `window.onload = startAnimation;` 启动整个动画。
+"""
+
+    system_prompt = f"""请你根据用户的主题“{topic}”，生成一个精美的、信息丰富的动态动画。
+这个动画需要像一个自动播放的短视频，用视觉和旁白清晰地讲解一个知识点。
+
+**输出要求**:
+*   **格式**: 生成一个独立的 HTML 文件，包含所有必需的 HTML, CSS, 和 JavaScript。
+*   **视觉风格**: 页面设计要极为精美、现代、有设计感。使用和谐的浅色配色方案，丰富的视觉元素，确保知识和图像的准确性。
+*   **动画形式**: 动画需要是动态的，能够展示一个过程。
+*   **旁白**: 提供中英双语字幕作为旁白。
+*   **分辨率**: 所有视觉元素都应在 2K 分辨率 (2560x1440) 的容器内正确定位，避免视觉错误。
+*   **无交互**: 动画自动播放，不需要用户交互。
+
+{fermats_example_structure}
+
+现在，请为主题“{topic}”创作动画。"""
 
     if USE_GEMINI:
         try:
-            full_prompt = system_prompt + "\n\n" + topic
+            full_prompt = system_prompt
             if history:
                 history_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in history])
                 full_prompt = history_text + "\n\n" + full_prompt
